@@ -58,13 +58,8 @@ namespace Telegram
             return updates;
         }
 
-        public void StartPolling()
+        public Task StartPolling()
         {
-            if (_pollingTask != null)
-            {
-                return;
-            }
-
             _pollingTask = Task.Run(() =>
             {
                 while (true)
@@ -81,7 +76,9 @@ namespace Telegram
                     Thread.Sleep(200);
                 }
             });
+            return _pollingTask;
         }
+
         /*
         public Message SendMessage(int chatId, string text)
         {

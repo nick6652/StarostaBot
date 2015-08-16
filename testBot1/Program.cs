@@ -1,25 +1,39 @@
-﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System;
 using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
-using System.Dynamic;
-using Telegram;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
+using Telegram;
+using System.Data.Entity;
+using System.Text.RegularExpressions;
 
 namespace testBot1
 {
-  
+        
     class Program
     {
 
         //static int user_id = 116815836;
         static string _token = "93529147:AAF5qsEr-4s2nyxKeVIjYROrIL0MA8zxyEY";
+
+        private static int _retryPollingDelay=200;
+
+        private static void StartPolling(TelegramApi tgApi)
+        {
+            //Logger.Debug("Starting polling");
+            Task pollingTask = tgApi.StartPolling();
+            pollingTask.ContinueWith(e =>
+            {
+                //Logger.Error(e.Exception, "An error occurred while retrieving updates");
+                new Timer(o =>
+                {
+                    StartPolling(tgApi);
+                }, null, _retryPollingDelay, -1);
+            },
+          TaskContinuationOptions.OnlyOnFaulted);
+        }
+
 
         static void Main(string[] args)
         {
@@ -37,6 +51,23 @@ namespace testBot1
                 Console.WriteLine(e.Message);
                 return;
             }
+            
+            using (var db = new AppDbContext())
+            {
+                db.SaveChanges();
+                var query = from b in db.Suggestions
+                            orderby b.Id
+                            select b;
+                Console.WriteLine("All suggestions:");
+                foreach (var item in query)
+                {
+                    Console.WriteLine(item.Id + " " + item.Text);
+                }
+                //Console.ReadKey();
+            }
+
+
+
             /*
             ReplyKeyboardMarkup replyKB = new ReplyKeyboardMarkup();
             replyKB.Keyboard = new string[][] 
@@ -50,20 +81,20 @@ namespace testBot1
 
             //string json = JsonConvert.SerializeObject(replyKB);
 
-            telegram.StartPolling();
+            StartPolling(telegram);
 
-            //var processingCommandUsers = new ConcurrentDictionary<User, bool>();
-            //Regex commandRegex = new Regex(@"(/\w+)\s*");
+            var processingCommandUsers = new ConcurrentDictionary<Telegram.User, bool>();
+            Regex commandRegex = new Regex(@"(/\w+)\s*");
 
             while (true)
             {
                 foreach (var update in telegram.Updates)
                 {
-                    /*if (processingCommandUsers.ContainsKey(update.Key) &&
+                    if (processingCommandUsers.ContainsKey(update.Key) &&
                         processingCommandUsers[update.Key])
                     {
                         continue;
-                    }*/
+                    }
 
                     if (update.Value.Count == 0)
                     {
@@ -74,37 +105,33 @@ namespace testBot1
 
                     /*Logger.Debug($"Received message '{message.Text}' from " +
                                  $"{message.From.FirstName} {message.From.LastName}");*/
-                    //string commandTitle = commandRegex.Match(message.Text).Groups[1].Value;
+                    string commandTitle = commandRegex.Match(message.Text).Groups[1].Value;
 
-                    string[][] keyboard = new string[][] 
-                    {
-                        new string[] {"Yes","No"}
-
-                    };
-
-
-                    ReplyKeyboardMarkup replyKeyboard = new ReplyKeyboardMarkup() {Keyboard = new string[][] {
+                    /*ReplyKeyboardMarkup replyKeyboard = new ReplyKeyboardMarkup() {Keyboard = new string[][] {
                                                                                        new string[] {"Yes","No"}
-                                                                                   } };
+                                                                                   },
+                                                                                   OneTimeKeyboard = true
+                    };*/
 
-                    string testText = message.Text.ToUpper();
+                    string testText = message.Text;
 
 
                     Console.WriteLine("Received a message: " + testText);
 
                     //Logger.Debug($"Creating command object for '{commandTitle}'");
-                    //var command = Command.CreateCommand(commandTitle);
+                    var command = Command.CreateCommand(commandTitle);
                     //Logger.Info($"Received {command.GetType().Name} from " +
                     //            $"{message.From.FirstName} {message.From.LastName}");
 
-                    //command.TelegramApi = tg;
-                    //command.Message = message;
+                    command.TelegramApi = telegram;
+                    command.Message = message;
 
                     //Logger.Debug($"Executing {command.GetType().Name}");
-                    //processingCommandUsers[update.Key] = true;
+                    processingCommandUsers[update.Key] = true;
+
                     try
                     {
-                        telegram.SendMessage(message.From, testText, replyKeyboard);
+                       // telegram.SendMessage(message.From, testText, replyKeyboard);
                      //   telegram.SendMessage(message.From, " ", replyKeyboard);
                     }
                     catch (Exception e)
@@ -113,7 +140,7 @@ namespace testBot1
                         throw;
                     }
 
-                    /*Task commandTask = Task.Run(() =>
+                    Task commandTask = Task.Run(() =>
                     {
                         try
                         {
@@ -121,20 +148,21 @@ namespace testBot1
                         }
                         catch (Exception e)
                         {
-                            Logger.Error($"An error occurred while executing {command.GetType().Name}.\n" +
+                            /*Logger.Error($"An error occurred while executing {command.GetType().Name}.\n" +
                                          $"Message: {command.Message.Text}\n" +
                                          $"Arguments: {command.Arguments}\n" +
                                          $"User: {command.Message.From}");
-                            Logger.Error(e);
+                            Logger.Error(e);*/
+                            Console.WriteLine(e.Message);
                         }
                     }
                         );
                     commandTask.ContinueWith(task =>
                     {
                         processingCommandUsers[update.Key] = false;
-                        Logger.Debug($"{command.GetType().Name} from " +
-                                     $"{message.From.FirstName} {message.From.LastName} {(command.Status ? "succeeded" : "failed")}");
-                    });*/
+                        /*Logger.Debug($"{command.GetType().Name} from " +
+                                     $"{message.From.FirstName} {message.From.LastName} {(command.Status ? "succeeded" : "failed")}");*/
+                    });
                 }
                 Thread.Sleep(200);
             }
