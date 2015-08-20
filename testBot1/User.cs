@@ -15,7 +15,12 @@ namespace testBot1
 
         public virtual ICollection<Suggestion> Suggestions { get; set; }
 
-        public virtual ICollection<Suggestion> RatedSuggestions { get; set; }
+        public virtual ICollection<Rating> Ratings { get; set; }
+
+        public User()
+        {
+            Ratings = new List<Rating>();
+        }
 
         public override string ToString()
         {

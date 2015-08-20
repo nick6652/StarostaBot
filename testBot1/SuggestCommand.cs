@@ -93,7 +93,7 @@ namespace testBot1
 
                 if (newUser)
                 {
-                    user.Suggestions.Add(suggestion);
+                    db.Suggestions.Add(suggestion);
                     db.Users.Add(user);
                 }
                 else

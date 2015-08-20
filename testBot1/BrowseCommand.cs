@@ -33,14 +33,14 @@ namespace testBot1
             messageSize = Math.Min(messageSize, MaxPageSize);
             //Program.Logger.Debug($"{GetType().Name}: Message size: {messageSize}");
 
-            List<string> shows;
+            List<string> suggestions;
 
             //Program.Logger.Debug($"{GetType().Name}: Retrieving shows list");
             using (var db = new AppDbContext())
             {
                 try
                 {
-                    shows = db.Suggestions.Select(s => "/"+ s.Id  + " " + s.Title + "\n предложено " + s.AddedBy.FirstName + " " + s.AddedBy.LastName).ToList();
+                    suggestions = db.Suggestions.Select(s => "/" + s.Id + " " + s.Title + "\nрейтинг: "+ s.Rate  + "\nпредложено " + s.AddedBy.FirstName + " " + s.AddedBy.LastName).ToList();
                 }
                 catch (Exception e)
                 {
@@ -50,16 +50,16 @@ namespace testBot1
 
 
             List<string> pagesList = new List<string>();
-            for (int i = 0; i < shows.Count; i += messageSize)
+            for (int i = 0; i < suggestions.Count; i += messageSize)
             {
-                if (i > shows.Count)
+                if (i > suggestions.Count)
                 {
                     break;
                 }
 
-                int count = Math.Min(shows.Count - i, messageSize);
+                int count = Math.Min(suggestions.Count - i, messageSize);
                 pagesList.Add(
-                    shows.GetRange(i, count)
+                    suggestions.GetRange(i, count)
                     .Aggregate("", (s, s1) => s + "\n" + s1)
                     );
             }
@@ -112,7 +112,7 @@ namespace testBot1
                     replyRateKB.OneTimeKeyboard = true;
                     replyRateKB.ResizeKeyboard = true;
                     replyRateKB.Selective = false;
-                    string footerText="";
+                    string footerText = "";
                     
                     do
                     {
@@ -125,12 +125,12 @@ namespace testBot1
                             {
                                 if (i == pagesList.Count - 1)
                                 {
-                                    //footerText = "\n/stop or /+";
+                                    footerText = "\n/stop or /+";
                                     replyKB.Keyboard[0]= new string[] {"/stop"};
                                 }
                                 else
                                 {
-                                    //footerText = "\n/next or /stop or /+";
+                                    footerText = "\n/next or /stop or /+";
                                     replyKB.Keyboard[0]= new string[] {"/next","/stop"};
                                 }
                                 TelegramApi.SendMessage(Message.From, footerText, replyKB);
